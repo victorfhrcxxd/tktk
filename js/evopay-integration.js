@@ -52,12 +52,18 @@ class EvoPay {
 
       return await response.json();
     } catch (error) {
-      // Mensagens mais claras para mobile
+      // Mensagens mais claras para mobile e produção
       if (error.message.includes('Load failed') || error.message.includes('Failed to fetch') || error.name === 'TypeError') {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const currentHost = window.location.hostname;
+        const isProduction = !currentHost.includes('localhost') && 
+                             !currentHost.includes('127.0.0.1') && 
+                             currentHost !== '192.168.0.204' &&
+                             !currentHost.match(/^192\.168\./);
         
-        if (isMobile && (this.apiUrl.includes('localhost') || this.apiUrl.includes('127.0.0.1'))) {
+        if (isProduction && this.apiUrl.includes('pix.evopay.cash')) {
+          throw new Error(`Erro de conexão em produção: A API EvoPay pode não permitir CORS direto. Considere criar um proxy no servidor ou usar backend.`);
+        } else if (isMobile && (this.apiUrl.includes('localhost') || this.apiUrl.includes('127.0.0.1'))) {
           throw new Error(`Erro de conexão: No mobile, use o IP da rede (ex: http://${currentHost}:8001) em vez de localhost`);
         } else {
           throw new Error(`Erro de conexão: Verifique se o proxy está acessível em ${this.apiUrl}`);
@@ -526,15 +532,33 @@ window.SupabaseToEvoPay = SupabaseToEvoPay;
 (function() {
   console.log('EvoPay: Script carregado!');
   
-  // Função para detectar e corrigir URL da API no mobile
+  // Função para detectar e corrigir URL da API
   function detectAndFixApiUrl(originalUrl) {
     if (!originalUrl) return originalUrl;
     
-    // Se está usando localhost e a página foi acessada via IP da rede
-    if (originalUrl.includes('localhost') || originalUrl.includes('127.0.0.1')) {
-      const currentHost = window.location.hostname;
-      const currentPort = window.location.port;
+    const currentHost = window.location.hostname;
+    const protocol = window.location.protocol;
+    const isProduction = !currentHost.includes('localhost') && 
+                         !currentHost.includes('127.0.0.1') && 
+                         currentHost !== '192.168.0.204' &&
+                         !currentHost.match(/^192\.168\./);
+    
+    // Em produção, usa a API direta da EvoPay (sem proxy)
+    if (isProduction && (originalUrl.includes('localhost') || originalUrl.includes('127.0.0.1'))) {
+      const productionUrl = 'https://pix.evopay.cash/v1';
+      console.log('EvoPay: Modo produção detectado, usando API direta:', productionUrl);
       
+      // Atualiza a meta tag se existir
+      const apiUrlMeta = document.querySelector('meta[name="evopay-api-url"]');
+      if (apiUrlMeta) {
+        apiUrlMeta.setAttribute('content', productionUrl);
+      }
+      
+      return productionUrl;
+    }
+    
+    // Se está usando localhost e a página foi acessada via IP da rede (desenvolvimento)
+    if (originalUrl.includes('localhost') || originalUrl.includes('127.0.0.1')) {
       // Se está acessando via IP da rede (ex: 192.168.x.x)
       if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(currentHost)) {
         // Substitui localhost pelo IP da rede
@@ -546,7 +570,7 @@ window.SupabaseToEvoPay = SupabaseToEvoPay;
         fixedUrl = fixedUrl.replace(/:\d+/, '');
         fixedUrl = fixedUrl + ':8001';
         
-        console.log('EvoPay: URL corrigida para mobile:', fixedUrl);
+        console.log('EvoPay: URL corrigida para desenvolvimento (IP):', fixedUrl);
         console.log('EvoPay: Hostname atual:', currentHost);
         
         // Atualiza a meta tag se existir
