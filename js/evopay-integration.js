@@ -8,6 +8,59 @@ class EvoPay {
     this.apiKey = apiKey;
     this.apiUrl = apiUrl;
     this.initialized = false;
+    this.directApiUrl = 'https://pix.evopay.cash/v1';
+  }
+
+  /**
+   * Helper: Tenta proxy primeiro, se der 404 tenta API direta
+   */
+  async fetchWithFallback(url, options = {}) {
+    const fullUrl = `${this.apiUrl}${url}`;
+    
+    try {
+      const response = await fetch(fullUrl, options);
+      
+      // Se proxy retorna 404, tenta API direta como fallback
+      if (!response.ok && response.status === 404 && this.apiUrl.includes('/api/evopay')) {
+        console.warn(`EvoPay: Proxy não encontrado (404) para ${url}, tentando API direta...`);
+        const directUrl = `${this.directApiUrl}${url}`;
+        
+        try {
+          const directResponse = await fetch(directUrl, options);
+          
+          if (directResponse.ok) {
+            console.warn('EvoPay: API direta funcionou! Upload do proxy PHP ainda é recomendado para evitar CORS.');
+            return directResponse;
+          } else {
+            throw new Error(`API direta retornou ${directResponse.status}`);
+          }
+        } catch (directError) {
+          console.error('EvoPay: API direta também falhou:', directError);
+          throw new Error(`Proxy PHP não encontrado (404). Faça upload de /api/evopay/proxy.php para o servidor. Erro direto: ${directError.message}`);
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      // Se é erro de rede e estamos usando proxy, tenta direto
+      if ((error.message.includes('Failed to fetch') || error.message.includes('Load failed')) && 
+          this.apiUrl.includes('/api/evopay')) {
+        console.warn(`EvoPay: Erro de rede com proxy, tentando API direta para ${url}...`);
+        const directUrl = `${this.directApiUrl}${url}`;
+        
+        try {
+          const directResponse = await fetch(directUrl, options);
+          if (directResponse.ok) {
+            console.warn('EvoPay: API direta funcionou como fallback!');
+            return directResponse;
+          }
+        } catch (directError) {
+          // Se ambos falharem, lança o erro original
+        }
+      }
+      
+      throw error;
+    }
   }
 
   /**
@@ -38,7 +91,7 @@ class EvoPay {
    */
   async getBalance() {
     try {
-      const response = await fetch(`${this.apiUrl}/account/balance`, {
+      const response = await this.fetchWithFallback('/account/balance', {
         method: 'GET',
         headers: {
           'API-Key': this.apiKey,
@@ -131,7 +184,7 @@ class EvoPay {
           fetchOptions.signal = controller.signal;
         }
         
-        response = await fetch(`${this.apiUrl}/pix`, fetchOptions);
+        response = await this.fetchWithFallback('/pix', fetchOptions);
         
         if (timeoutId) clearTimeout(timeoutId);
       } catch (fetchError) {
@@ -220,7 +273,7 @@ class EvoPay {
       // Busca na lista de transações (não existe endpoint /pix/{id})
       let response;
       try {
-        response = await fetch(`${this.apiUrl}/account/transactions?limit=100&type=DEPOSIT`, {
+        response = await this.fetchWithFallback('/account/transactions?limit=100&type=DEPOSIT', {
           method: 'GET',
           headers: {
             'API-Key': this.apiKey,
