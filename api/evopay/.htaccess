@@ -1,28 +1,42 @@
-# Força o servidor a processar arquivos PHP
+# Força execução de PHP
+<IfModule mod_php7.c>
+  php_flag engine on
+</IfModule>
+<IfModule mod_php8.c>
+  php_flag engine on
+</IfModule>
 <IfModule mod_php.c>
   php_flag engine on
 </IfModule>
 
-# Garante que arquivos .php sejam processados
+# Garante que arquivos .php sejam processados pelo PHP
 AddType application/x-httpd-php .php
+AddHandler application/x-httpd-php .php
 
-# Remove AddHandler se estiver causando conflito
-# AddHandler application/x-httpd-php .php
-
-# Headers para CORS (backup)
+# Headers CORS
 <IfModule mod_headers.c>
   Header set Access-Control-Allow-Origin "*"
   Header set Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE"
   Header set Access-Control-Allow-Headers "Content-Type, API-Key, Authorization"
+  
+  # Handle preflight OPTIONS
+  RewriteEngine On
+  RewriteCond %{REQUEST_METHOD} OPTIONS
+  RewriteRule ^(.*)$ $1 [R=200,L]
 </IfModule>
 
-# Redirect para proxy.php se arquivo não existir
+# Redirect para index.php se arquivo não existir
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /api/evopay/
   
-  # Se não é um arquivo existente, redireciona para proxy.php
+  # Se não é um arquivo existente, redireciona para index.php
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^(.*)$ proxy.php [QSA,L]
+  RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
+
+# Previne download de arquivos PHP
+<FilesMatch "\.php$">
+  SetHandler application/x-httpd-php
+</FilesMatch>
