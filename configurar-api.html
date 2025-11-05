@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurar API de Pagamentos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 2px solid #ef4444;
+        }
+        
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 2px solid #3b82f6;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 2px solid #10b981;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            color: #374151;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .test-urls {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .test-urls h3 {
+            font-size: 16px;
+            color: #374151;
+            margin-bottom: 15px;
+        }
+        
+        .url-option {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border: 2px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        
+        .url-option:hover {
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+        
+        .url-option code {
+            font-family: monospace;
+            color: #667eea;
+            font-size: 12px;
+        }
+        
+        .url-option .status {
+            float: right;
+            font-size: 12px;
+        }
+        
+        .logs {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-line {
+            margin-bottom: 5px;
+        }
+        
+        .log-error { color: #ef4444; }
+        .log-success { color: #10b981; }
+        .log-info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Configurar API de Pagamentos</h1>
+        <p class="subtitle">Configure a URL correta da sua API de pagamentos PIX</p>
+        
+        <div class="alert alert-error">
+            <strong>❌ Erro Detectado:</strong> O domínio <code>api.evopay.cash</code> não pôde ser resolvido (ERR_NAME_NOT_RESOLVED).
+            <br><br>
+            Isso significa que a URL da API está incorreta ou o serviço está fora do ar.
+        </div>
+        
+        <div class="alert alert-info">
+            <strong>💡 O que fazer:</strong>
+            <ol style="margin: 10px 0 0 20px; line-height: 1.8;">
+                <li>Verifique qual é a <strong>URL correta</strong> da sua API de pagamentos</li>
+                <li>Cole a URL no campo abaixo e teste</li>
+                <li>Ou escolha uma das opções de teste</li>
+            </ol>
+        </div>
+        
+        <form id="config-form">
+            <div class="form-group">
+                <label for="api-url">URL da API</label>
+                <input type="text" id="api-url" placeholder="https://api.exemplo.com" value="https://app.evopay.cash/api">
+                <div class="help-text">A URL base da API (sem endpoints como /v1/balance)</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="api-key">API Key</label>
+                <input type="text" id="api-key" value="5aef8004-9644-4dda-85a4-163fae7439ae" readonly>
+                <div class="help-text">Sua API Key atual (configurada no HTML)</div>
+            </div>
+            
+            <button type="submit">🧪 Testar Conexão</button>
+        </form>
+        
+        <div class="test-urls">
+            <h3>🎯 URLs Comuns para Testar</h3>
+            
+            <div class="url-option" onclick="testUrl('https://app.evopay.cash/api', 'status-1')">
+                <code>https://app.evopay.cash/api</code>
+                <span class="status" id="status-1">⭐ Recomendado</span>
+            </div>
+            
+            <div class="url-option" onclick="testUrl('https://app.evopay.cash', 'status-2')">
+                <code>https://app.evopay.cash</code>
+                <span class="status" id="status-2">⏳ Não testado</span>
+            </div>
+            
+            <div class="url-option" onclick="testUrl('https://api.evopay.cash', 'status-3')">
+                <code>https://api.evopay.cash</code>
+                <span class="status" id="status-3">⏳ Não testado</span>
+            </div>
+            
+            <div class="url-option" onclick="testUrl('https://evopay.cash/api', 'status-4')">
+                <code>https://evopay.cash/api</code>
+                <span class="status" id="status-4">⏳ Não testado</span>
+            </div>
+            
+            <div class="url-option" onclick="testUrl('http://localhost:3000', 'status-5')">
+                <code>http://localhost:3000</code>
+                <span class="status" id="status-5">⏳ Não testado</span>
+            </div>
+        </div>
+        
+        <div class="logs" id="console-logs">
+            <div class="log-line log-info">Aguardando teste de conexão...</div>
+        </div>
+        
+        <div id="result-container" style="display: none; margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        const apiKey = '5aef8004-9644-4dda-85a4-163fae7439ae';
+        
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('console-logs');
+            const logLine = document.createElement('div');
+            logLine.className = `log-line log-${type}`;
+            logLine.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(logLine);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        document.getElementById('config-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = document.getElementById('api-url').value.trim();
+            await testUrl(url);
+        });
+        
+        async function testUrl(baseUrl, statusId) {
+            addLog(`Testando: ${baseUrl}`, 'info');
+            
+            const testEndpoints = [
+                { path: '/v1/balance', method: 'GET' },
+                { path: '/balance', method: 'GET' },
+                { path: '/api/v1/balance', method: 'GET' },
+                { path: '/health', method: 'GET' },
+                { path: '/ping', method: 'GET' },
+                { path: '/', method: 'GET' }
+            ];
+            
+            for (const endpoint of testEndpoints) {
+                try {
+                    const fullUrl = `${baseUrl}${endpoint.path}`;
+                    addLog(`Tentando: ${fullUrl}`, 'info');
+                    
+                    const response = await fetch(fullUrl, {
+                        method: endpoint.method,
+                        headers: {
+                            'API-Key': apiKey,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    addLog(`✅ Resposta recebida! Status: ${response.status}`, 'success');
+                    
+                    if (response.ok || response.status === 401 || response.status === 403) {
+                        // Se recebeu resposta (mesmo que unauthorized), o servidor existe!
+                        const resultDiv = document.getElementById('result-container');
+                        resultDiv.style.display = 'block';
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-success">
+                                <strong>✅ Servidor encontrado!</strong><br><br>
+                                <strong>URL Base:</strong> <code>${baseUrl}</code><br>
+                                <strong>Endpoint testado:</strong> <code>${endpoint.path}</code><br>
+                                <strong>Status HTTP:</strong> ${response.status}<br><br>
+                                ${response.status === 401 ? '⚠️ Erro 401: API Key pode estar incorreta' : ''}
+                                ${response.status === 403 ? '⚠️ Erro 403: Acesso negado' : ''}
+                                ${response.ok ? '✅ Conexão bem-sucedida!' : ''}
+                                <br><br>
+                                <button onclick="updateHtml('${baseUrl}')">📝 Atualizar HTML com esta URL</button>
+                            </div>
+                        `;
+                        
+                        if (statusId) {
+                            document.getElementById(statusId).textContent = '✅ Funciona!';
+                            document.getElementById(statusId).style.color = '#10b981';
+                        }
+                        
+                        return true;
+                    }
+                } catch (error) {
+                    addLog(`❌ ${endpoint.path}: ${error.message}`, 'error');
+                }
+            }
+            
+            addLog(`❌ Nenhum endpoint respondeu para: ${baseUrl}`, 'error');
+            
+            if (statusId) {
+                document.getElementById(statusId).textContent = '❌ Não funciona';
+                document.getElementById(statusId).style.color = '#ef4444';
+            }
+            
+            return false;
+        }
+        
+        function updateHtml(apiUrl) {
+            const resultDiv = document.getElementById('result-container');
+            resultDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>📝 Instruções para atualizar:</strong><br><br>
+                    1. Abra o arquivo: <code>index.html</code><br>
+                    2. Localize a linha 41 (meta tag evopay-api-url)<br>
+                    3. Substitua por:<br><br>
+                    <code style="display: block; background: #f3f4f6; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                        &lt;meta name="evopay-api-url" content="${apiUrl}"&gt;
+                    </code>
+                    <br>
+                    4. Salve o arquivo e recarregue a página<br><br>
+                    <button onclick="copyToClipboard('${apiUrl}')">📋 Copiar URL</button>
+                </div>
+            `;
+            
+            addLog('✅ URL correta identificada: ' + apiUrl, 'success');
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            addLog('✅ URL copiada para a área de transferência!', 'success');
+        }
+    </script>
+</body>
+</html>
+
