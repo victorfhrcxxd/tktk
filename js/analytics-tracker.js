@@ -152,45 +152,65 @@
   
   // Detectar acesso ao checkout automaticamente
   function detectCheckoutView() {
-    // Detecta quando formulário de checkout é exibido
-    const observer = new MutationObserver(() => {
-      // Procura por formulários de checkout
-      const checkoutForms = document.querySelectorAll('[class*="payment"], [class*="checkout"], form[class*="form"]');
+    // Função auxiliar para iniciar observer
+    function startObserver() {
+      // Verifica se document.body existe e é um Node válido
+      if (!document.body || !(document.body instanceof Node)) {
+        return;
+      }
       
-      checkoutForms.forEach(form => {
-        if (form.dataset.analyticsTracked) return;
+      // Detecta quando formulário de checkout é exibido
+      const observer = new MutationObserver(() => {
+        // Procura por formulários de checkout
+        const checkoutForms = document.querySelectorAll('[class*="payment"], [class*="checkout"], form[class*="form"]');
         
-        // Marca como rastreado
-        form.dataset.analyticsTracked = 'true';
-        
-        // Tenta identificar produto
-        let productName = 'Produto não identificado';
-        let productPrice = 0;
-        
-        // Busca nome do produto na página
-        const productTitle = document.querySelector('h1, h2, [class*="product-name"], [class*="title"]');
-        if (productTitle) {
-          productName = productTitle.textContent.trim();
-        }
-        
-        // Busca preço do produto
-        const priceElement = document.querySelector('[class*="price"]');
-        if (priceElement) {
-          const priceText = priceElement.textContent;
-          const priceMatch = priceText.match(/[\d.,]+/);
-          if (priceMatch) {
-            productPrice = parseFloat(priceMatch[0].replace(',', '.'));
+        checkoutForms.forEach(form => {
+          if (form.dataset.analyticsTracked) return;
+          
+          // Marca como rastreado
+          form.dataset.analyticsTracked = 'true';
+          
+          // Tenta identificar produto
+          let productName = 'Produto não identificado';
+          let productPrice = 0;
+          
+          // Busca nome do produto na página
+          const productTitle = document.querySelector('h1, h2, [class*="product-name"], [class*="title"]');
+          if (productTitle) {
+            productName = productTitle.textContent.trim();
           }
-        }
-        
-        trackCheckoutView(productName, productPrice);
+          
+          // Busca preço do produto
+          const priceElement = document.querySelector('[class*="price"]');
+          if (priceElement) {
+            const priceText = priceElement.textContent;
+            const priceMatch = priceText.match(/[\d.,]+/);
+            if (priceMatch) {
+              productPrice = parseFloat(priceMatch[0].replace(',', '.'));
+            }
+          }
+          
+          trackCheckoutView(productName, productPrice);
+        });
       });
-    });
+      
+      try {
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+      } catch (error) {
+        console.warn('Analytics: Erro ao iniciar observer:', error);
+      }
+    }
     
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+    // Tenta iniciar imediatamente se body já existe
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startObserver);
+    } else {
+      // DOM já está carregado
+      startObserver();
+    }
   }
   
   // Interceptar geração de PIX
