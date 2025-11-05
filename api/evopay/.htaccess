@@ -1,0 +1,28 @@
+# Força o servidor a processar arquivos PHP
+<IfModule mod_php.c>
+  php_flag engine on
+</IfModule>
+
+# Garante que arquivos .php sejam processados
+AddType application/x-httpd-php .php
+
+# Remove AddHandler se estiver causando conflito
+# AddHandler application/x-httpd-php .php
+
+# Headers para CORS (backup)
+<IfModule mod_headers.c>
+  Header set Access-Control-Allow-Origin "*"
+  Header set Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE"
+  Header set Access-Control-Allow-Headers "Content-Type, API-Key, Authorization"
+</IfModule>
+
+# Redirect para proxy.php se arquivo não existir
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /api/evopay/
+  
+  # Se não é um arquivo existente, redireciona para proxy.php
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ proxy.php [QSA,L]
+</IfModule>
