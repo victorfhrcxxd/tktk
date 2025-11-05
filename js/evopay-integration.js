@@ -15,14 +15,30 @@ class EvoPay {
    * Helper: Tenta proxy primeiro, se der 404 tenta API direta
    */
   async fetchWithFallback(url, options = {}) {
-    const fullUrl = `${this.apiUrl}${url}`;
+    let fullUrl = `${this.apiUrl}${url}`;
     
     try {
-      const response = await fetch(fullUrl, options);
+      let response = await fetch(fullUrl, options);
       
-      // Se proxy retorna 404, tenta API direta como fallback
+      // Se proxy retorna 404, tenta index.php primeiro
       if (!response.ok && response.status === 404 && this.apiUrl.includes('/api/evopay')) {
-        console.warn(`EvoPay: Proxy não encontrado (404) para ${url}, tentando API direta...`);
+        console.warn(`EvoPay: Proxy não encontrado (404) para ${url}, tentando index.php...`);
+        
+        // Tenta index.php em vez de proxy.php
+        const indexUrl = fullUrl.replace('/api/evopay/', '/api/evopay/index.php').replace('/proxy.php', '/index.php');
+        
+        try {
+          const indexResponse = await fetch(indexUrl, options);
+          if (indexResponse.ok) {
+            console.warn('EvoPay: index.php funcionou!');
+            return indexResponse;
+          }
+        } catch (indexError) {
+          console.warn('EvoPay: index.php também não funcionou, tentando API direta...');
+        }
+        
+        // Se index.php não funcionou, tenta API direta
+        console.warn(`EvoPay: Tentando API direta para ${url}...`);
         const directUrl = `${this.directApiUrl}${url}`;
         
         try {
@@ -36,7 +52,13 @@ class EvoPay {
           }
         } catch (directError) {
           console.error('EvoPay: API direta também falhou:', directError);
-          throw new Error(`Proxy PHP não encontrado (404). Faça upload de /api/evopay/proxy.php para o servidor. Erro direto: ${directError.message}`);
+          
+          // Mensagem mais clara se for erro de CORS
+          if (directError.message.includes('CORS') || directError.message.includes('Access-Control')) {
+            throw new Error(`🚨 ERRO: Proxy PHP não encontrado e API direta bloqueada por CORS.\n\n✅ SOLUÇÃO: Faça upload dos arquivos para /api/evopay/ no servidor e configure PHP.\n\n📁 Arquivos: proxy.php, index.php, .htaccess`);
+          } else {
+            throw new Error(`Proxy PHP não encontrado (404). Faça upload de /api/evopay/proxy.php para o servidor. Erro direto: ${directError.message}`);
+          }
         }
       }
       

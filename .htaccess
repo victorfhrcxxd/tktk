@@ -1,28 +1,46 @@
-# Força o servidor a processar arquivos PHP
-<IfModule mod_php.c>
-  php_flag engine on
-</IfModule>
+# React Router - Redireciona todas as rotas para index.html
+# Apache Configuration
 
-# Garante que arquivos .php sejam processados
-AddType application/x-httpd-php .php
-
-# Remove AddHandler se estiver causando conflito
-# AddHandler application/x-httpd-php .php
-
-# Headers para CORS (backup)
-<IfModule mod_headers.c>
-  Header set Access-Control-Allow-Origin "*"
-  Header set Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE"
-  Header set Access-Control-Allow-Headers "Content-Type, API-Key, Authorization"
-</IfModule>
-
-# Redirect para proxy.php se arquivo não existir
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /api/evopay/
+  RewriteBase /
   
-  # Se não é um arquivo existente, redireciona para proxy.php
+  # Não redireciona arquivos existentes
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^(.*)$ proxy.php [QSA,L]
+  
+  # Não redireciona pasta admin
+  RewriteCond %{REQUEST_URI} !^/admin
+  
+  # Não redireciona pasta api
+  RewriteCond %{REQUEST_URI} !^/api
+  
+  # Redireciona tudo para index.html
+  RewriteRule . /index.html [L]
 </IfModule>
+
+# Headers de segurança
+<IfModule mod_headers.c>
+  # CORS para API local
+  <FilesMatch "\.(php)$">
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+</IfModule>
+
+# Cache para assets estáticos
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# Compressão GZIP
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+  AddOutputFilterByType DEFLATE application/javascript application/json
+</IfModule>
+
