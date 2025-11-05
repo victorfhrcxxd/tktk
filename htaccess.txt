@@ -1,0 +1,49 @@
+# React Router - Redireciona todas as rotas para index.html
+# Apache Configuration
+# 
+# IMPORTANTE: Renomeie este arquivo para .htaccess após fazer upload
+# (Alguns servidores não permitem upload de arquivos que começam com ponto)
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Não redireciona arquivos existentes
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  
+  # Não redireciona pasta admin
+  RewriteCond %{REQUEST_URI} !^/admin
+  
+  # Não redireciona pasta api
+  RewriteCond %{REQUEST_URI} !^/api
+  
+  # Redireciona tudo para index.html
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Headers de segurança
+<IfModule mod_headers.c>
+  # CORS para API local
+  <FilesMatch "\.(php)$">
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+</IfModule>
+
+# Cache para assets estáticos
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# Compressão GZIP
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+  AddOutputFilterByType DEFLATE application/javascript application/json
+</IfModule>
+
