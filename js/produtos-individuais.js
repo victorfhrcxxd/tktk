@@ -6,7 +6,22 @@
 (function() {
   console.log('📦 Produtos Individuais: Carregado');
   
-  // Configuração de produtos e suas páginas
+  // Carregar produtos do admin (localStorage)
+  function carregarProdutosAdmin() {
+    try {
+      const stored = localStorage.getItem('tiktok_shop_products');
+      if (stored) {
+        const products = JSON.parse(stored);
+        console.log('📦 Produtos do Admin carregados:', products.length);
+        return products;
+      }
+    } catch (e) {
+      console.warn('📦 Erro ao carregar produtos do admin:', e);
+    }
+    return [];
+  }
+  
+  // Configuração de produtos e suas páginas (produtos fixos existentes)
   const produtosConfig = {
     'iphone': {
       keywords: ['iphone', 'iphone16', 'iphone-16'],
@@ -61,6 +76,12 @@
     let hash = window.location.hash.toLowerCase();
     const search = window.location.search.toLowerCase();
     
+    // Ignora rotas administrativas
+    if (path.includes('/admin')) {
+      console.log('📦 Rota administrativa detectada - pulando');
+      return null;
+    }
+    
     // Remove # do hash
     if (hash.startsWith('#')) {
       hash = hash.substring(1);
@@ -76,19 +97,29 @@
     
     console.log('🔍 Verificando URL:', urlCompleta);
     
-    // Primeiro tenta match direto por ID
+    // Primeiro tenta match com produtos do admin (slugs)
+    const produtosAdmin = carregarProdutosAdmin();
+    for (const produto of produtosAdmin) {
+      const slug = produto.slug.toLowerCase();
+      if (urlCompleta.includes(slug)) {
+        console.log('✅ Match com produto do admin:', produto.name, '(slug:', slug + ')');
+        return slug;
+      }
+    }
+    
+    // Depois tenta match direto por ID (produtos fixos)
     for (const [id] of Object.entries(produtosConfig)) {
       if (urlCompleta.includes('/' + id) || urlCompleta.includes(id + '/') || urlCompleta === id) {
-        console.log('✅ Match direto:', id);
+        console.log('✅ Match direto com produto fixo:', id);
         return id;
       }
     }
     
-    // Depois tenta match por keywords
+    // Por último tenta match por keywords (produtos fixos)
     for (const [id, config] of Object.entries(produtosConfig)) {
       for (const keyword of config.keywords) {
         if (urlCompleta.includes(keyword)) {
-          console.log('✅ Match por keyword:', id, keyword);
+          console.log('✅ Match por keyword (produto fixo):', id, keyword);
           return id;
         }
       }

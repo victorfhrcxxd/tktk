@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Admin Funcionando</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 {
+            color: #667eea;
+            font-size: 48px;
+            margin: 0 0 20px 0;
+        }
+        p {
+            color: #666;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        .success {
+            color: #10b981;
+            font-size: 72px;
+            margin: 20px 0;
+        }
+        .btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            text-decoration: none;
+            margin-top: 20px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            background: #5568d3;
+        }
+        .info {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .info p {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="success">✅</div>
+        <h1>Funcionando!</h1>
+        <p><strong>O servidor Admin está rodando perfeitamente!</strong></p>
+        <p>Se você consegue ver esta página, significa que o servidor está configurado corretamente.</p>
+        
+        <div class="info">
+            <p><strong>📊 Status:</strong></p>
+            <p>✅ Servidor: Online</p>
+            <p>✅ Porta: 8000</p>
+            <p>✅ Pasta Admin: Acessível</p>
+            <p>✅ HTML: Carregando</p>
+            <p>✅ JavaScript: <span id="js-status">Testando...</span></p>
+        </div>
+        
+        <a href="index.html" class="btn">➡️ Ir para o Painel Admin</a>
+        
+        <p style="margin-top: 30px; font-size: 14px; color: #999;">
+            Tempo: <span id="time"></span>
+        </p>
+    </div>
+    
+    <script>
+        // Testa JavaScript
+        document.getElementById('js-status').textContent = 'Funcionando!';
+        document.getElementById('js-status').style.color = '#10b981';
+        
+        // Mostra hora
+        setInterval(() => {
+            document.getElementById('time').textContent = new Date().toLocaleTimeString('pt-BR');
+        }, 1000);
+        
+        // Testa localStorage
+        try {
+            localStorage.setItem('test', 'ok');
+            localStorage.removeItem('test');
+            console.log('✅ localStorage funcionando');
+        } catch(e) {
+            console.error('❌ localStorage com erro:', e);
+        }
+    </script>
+</body>
+</html>
+
