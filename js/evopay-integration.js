@@ -543,10 +543,11 @@ window.SupabaseToEvoPay = SupabaseToEvoPay;
                          currentHost !== '192.168.0.204' &&
                          !currentHost.match(/^192\.168\./);
     
-    // Em produção, usa a API direta da EvoPay (sem proxy)
+    // Em produção, usa o proxy PHP no mesmo domínio (resolve CORS)
     if (isProduction && (originalUrl.includes('localhost') || originalUrl.includes('127.0.0.1'))) {
-      const productionUrl = 'https://pix.evopay.cash/v1';
-      console.log('EvoPay: Modo produção detectado, usando API direta:', productionUrl);
+      const productionUrl = `${protocol}//${currentHost}/api/evopay`;
+      console.log('EvoPay: Modo produção detectado, usando proxy PHP:', productionUrl);
+      console.log('EvoPay: O proxy PHP resolve problemas de CORS automaticamente');
       
       // Atualiza a meta tag se existir
       const apiUrlMeta = document.querySelector('meta[name="evopay-api-url"]');

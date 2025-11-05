@@ -1,12 +1,10 @@
 <?php
 /**
  * Proxy EvoPay para Produção (PHP)
- * Use este arquivo em hospedagem compartilhada que só suporta PHP
+ * Versão alternativa: index.php
  * 
- * Como usar:
- * 1. Faça upload deste arquivo para: /api/evopay/proxy.php
- * 2. Configure no index.html:
- *    <meta name="evopay-api-url" content="https://seudominio.com/api/evopay">
+ * Use esta versão se o servidor não suportar proxy.php diretamente
+ * Faça upload deste arquivo para: /api/evopay/index.php
  */
 
 header('Access-Control-Allow-Origin: *');
@@ -29,8 +27,8 @@ $path = $_SERVER['REQUEST_URI'];
 // Remove /api/evopay from the beginning
 $path = preg_replace('#^/api/evopay#', '', $path);
 
-// Remove /proxy.php if present
-$path = str_replace('/proxy.php', '', $path);
+// Remove /index.php if present
+$path = str_replace('/index.php', '', $path);
 
 // If path is empty or just '/', default to root
 if (empty($path) || $path === '/') {

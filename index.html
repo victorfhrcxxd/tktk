@@ -39,8 +39,11 @@
     <!-- EvoPay Configuration -->
     <meta name="evopay-api-key" content="5aef8004-9644-4dda-85a4-163fae7439ae">
     <meta name="evopay-api-url" content="http://localhost:8001">
-    <!-- Usando proxy local para resolver CORS -->
-    <!-- Proxy faz ponte: localhost:8001 -> app.evopay.cash/api -->
+    <!-- 
+      Desenvolvimento: usa proxy Python em localhost:8001
+      Produção: automaticamente detecta e usa /api/evopay (proxy PHP)
+      O código detecta o ambiente e ajusta automaticamente
+    -->
     
     <!-- Performance optimizations -->
     <link rel="preconnect" href="https://app.evopay.cash" crossorigin>
