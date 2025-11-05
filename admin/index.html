@@ -351,11 +351,29 @@
                 <h3>Páginas Criadas</h3>
                 <div class="value" id="total-pages">0</div>
             </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h3 style="color: rgba(255,255,255,0.9);">Acessos ao Checkout</h3>
+                <div class="value" id="checkout-views" style="color: white;">0</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                <h3 style="color: rgba(255,255,255,0.9);">PIX Gerados</h3>
+                <div class="value" id="pix-generated" style="color: white;">0</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                <h3 style="color: rgba(255,255,255,0.9);">Taxa de Conversão</h3>
+                <div class="value" id="conversion-rate" style="color: white;">0%</div>
+            </div>
         </div>
 
         <div class="actions">
             <button class="btn btn-primary" onclick="openModal()">
                 ➕ Novo Produto
+            </button>
+            <button class="btn btn-secondary" onclick="showAnalyticsHistory()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                📊 Ver Histórico Analytics
+            </button>
+            <button class="btn btn-secondary" onclick="resetAnalytics()" style="background: #ff6b6b; color: white;">
+                🔄 Resetar Analytics
             </button>
             <button class="btn btn-secondary" onclick="exportData()">
                 💾 Exportar Dados
@@ -458,7 +476,7 @@
         </div>
     </div>
 
-    <script src="/admin/admin.js?v=1762309644"></script>
+    <script src="/admin/admin.js?v=1762310637"></script>
 </body>
 </html>
 

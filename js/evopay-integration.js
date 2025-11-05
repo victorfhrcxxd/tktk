@@ -150,30 +150,70 @@ class EvoPay {
 
       const data = await response.json();
       
+      // A API pode retornar array diretamente ou objeto com transactions
+      let transactions = Array.isArray(data) ? data : (data.transactions || data.data || []);
+      
       // Encontra o pagamento específico na lista
-      const transaction = data.transactions.find(t => t.id === paymentId);
+      const transaction = transactions.find(t => 
+        t.id === paymentId || 
+        t.paymentId === paymentId ||
+        t.transactionId === paymentId
+      );
       
       if (!transaction) {
-        throw new Error('Pagamento não encontrado');
+        // Se não encontrou, pode ser que ainda não esteja na lista
+        // Retorna status PENDING como padrão
+        console.warn('EvoPay: Pagamento não encontrado na lista, assumindo PENDING:', paymentId);
+        return {
+          success: true,
+          paymentId: paymentId,
+          status: 'PENDING',
+          paid: false,
+          amount: null,
+          paidAt: null,
+          qrCodeUrl: null,
+          qrCodeBase64: null,
+          qrCodeText: null,
+          rawData: null,
+          note: 'Pagamento não encontrado na lista de transações (pode estar pendente ou recém criado)'
+        };
       }
-      
-      console.log('EvoPay: Status do pagamento:', transaction.status);
+
+      console.log('EvoPay: Status do pagamento:', transaction.status || transaction.state);
+
+      // Normaliza status (pode ser status, state, ou outro campo)
+      const status = transaction.status || transaction.state || 'PENDING';
+      const isCompleted = status === 'COMPLETED' || status === 'COMPLETE' || status === 'PAID';
 
       return {
         success: true,
-        paymentId: transaction.id,
-        status: transaction.status,
-        paid: transaction.status === 'COMPLETED',
-        amount: transaction.amount,
-        paidAt: transaction.updatedAt,
-        qrCodeUrl: transaction.qrCodeUrl,
-        qrCodeBase64: transaction.qrCodeBase64,
-        qrCodeText: transaction.qrCodeText,
+        paymentId: transaction.id || transaction.paymentId || paymentId,
+        status: status,
+        paid: isCompleted,
+        amount: transaction.amount || transaction.amountWithTax || null,
+        paidAt: transaction.updatedAt || transaction.paidAt || transaction.createdAt || null,
+        qrCodeUrl: transaction.qrCodeUrl || null,
+        qrCodeBase64: transaction.qrCodeBase64 || null,
+        qrCodeText: transaction.qrCodeText || null,
         rawData: transaction
       };
     } catch (error) {
       console.error('EvoPay: Erro ao verificar status:', error);
-      throw error;
+      
+      // Retorna um status padrão em caso de erro, não lança exceção
+      return {
+        success: false,
+        paymentId: paymentId,
+        status: 'UNKNOWN',
+        paid: false,
+        amount: null,
+        paidAt: null,
+        qrCodeUrl: null,
+        qrCodeBase64: null,
+        qrCodeText: null,
+        rawData: null,
+        error: error.message
+      };
     }
   }
 
@@ -273,16 +313,24 @@ class SupabaseToEvoPay {
       const body = JSON.parse(options.body);
       const result = await this.evopay.checkPaymentStatus(body.paymentId);
       
+      // Se result.success é false, retorna status 404 mas ainda retorna os dados
+      const statusCode = result.success ? 200 : 404;
+      
       return new Response(JSON.stringify(result), {
-        status: 200,
+        status: statusCode,
         headers: { 'Content-Type': 'application/json' }
       });
     } catch (error) {
+      // Em caso de erro inesperado, retorna um objeto válido
+      console.error('EvoPay: Erro no handleCheckPayment:', error);
       return new Response(JSON.stringify({
         success: false,
+        paymentId: options.body ? JSON.parse(options.body).paymentId : null,
+        status: 'UNKNOWN',
+        paid: false,
         error: error.message
       }), {
-        status: 500,
+        status: 200, // Retorna 200 mesmo com erro para não quebrar o fluxo
         headers: { 'Content-Type': 'application/json' }
       });
     }
