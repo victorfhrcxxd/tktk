@@ -1,0 +1,1 @@
+Fix: Melhora parsing de URL no index.php para funcionar sem .htaccess
