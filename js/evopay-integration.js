@@ -3,6 +3,37 @@
  * Integração customizada com a API EvoPay para pagamentos PIX
  */
 
+/**
+ * Função auxiliar para gerar QR Code a partir do código PIX usando API externa
+ * Usa um serviço público de geração de QR Code como fallback
+ */
+async function generateQrCodeFromPixCode(pixCode) {
+  if (!pixCode) return null;
+  
+  try {
+    // Usa API pública para gerar QR Code a partir do código PIX
+    // Alternativa: usar biblioteca client-side como qrcode.js
+    const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`;
+    
+    // Converte a URL da imagem em base64
+    const response = await fetch(qrCodeApiUrl);
+    if (response.ok) {
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result); // Retorna como data:image/png;base64,...
+        };
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch (error) {
+    console.warn('EvoPay: Erro ao gerar QR Code a partir do código PIX:', error);
+  }
+  
+  return null;
+}
+
 class EvoPay {
   constructor(apiKey, apiUrl = 'https://api.evopay.cash') {
     this.apiKey = apiKey;
@@ -13,8 +44,25 @@ class EvoPay {
 
   /**
    * Helper: Tenta proxy primeiro, se der 404 tenta API direta
+   * Em produção/mobile, sempre usa o proxy PHP (/api/evopay)
    */
   async fetchWithFallback(url, options = {}) {
+    // Garante que a URL está correta para produção/mobile/tkttok.shop
+    const currentHost = window.location.hostname;
+    const protocol = window.location.protocol;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isLocalhost = currentHost === 'localhost' || 
+                        currentHost === '127.0.0.1' || 
+                        currentHost.match(/^192\.168\./);
+    const isProduction = !isLocalhost || currentHost.includes('tkttok.shop');
+    
+    // Se está em produção/mobile/tkttok.shop e a URL ainda aponta para localhost, corrige
+    if ((isProduction || isMobile || currentHost.includes('tkttok.shop')) && 
+        this.apiUrl && (this.apiUrl.includes('localhost') || this.apiUrl.includes('127.0.0.1') || this.apiUrl.includes(':8001'))) {
+      this.apiUrl = `${protocol}//${currentHost}/api/evopay`;
+      console.log('EvoPay: URL corrigida no fetchWithFallback para:', this.apiUrl);
+    }
+    
     let fullUrl = `${this.apiUrl}${url}`;
     
     try {
@@ -24,8 +72,17 @@ class EvoPay {
       if (!response.ok && response.status === 404 && this.apiUrl.includes('/api/evopay')) {
         console.warn(`EvoPay: Proxy não encontrado (404) para ${url}, tentando index.php...`);
         
-        // Tenta index.php em vez de proxy.php
-        const indexUrl = fullUrl.replace('/api/evopay/', '/api/evopay/index.php').replace('/proxy.php', '/index.php');
+        // Tenta index.php em vez de proxy.php (corrige bug da barra faltando)
+        let indexUrl = fullUrl;
+        if (indexUrl.includes('/api/evopay/')) {
+          indexUrl = indexUrl.replace('/api/evopay/', '/api/evopay/index.php');
+        } else if (indexUrl.includes('/api/evopay')) {
+          indexUrl = indexUrl.replace('/api/evopay', '/api/evopay/index.php');
+        }
+        // Garante que há barra entre index.php e o path
+        indexUrl = indexUrl.replace('/index.php', '/index.php/');
+        indexUrl = indexUrl.replace('//', '/');
+        indexUrl = indexUrl.replace(':/', '://');
         
         try {
           const indexResponse = await fetch(indexUrl, options);
@@ -34,39 +91,38 @@ class EvoPay {
             return indexResponse;
           }
         } catch (indexError) {
-          console.warn('EvoPay: index.php também não funcionou, tentando API direta...');
+          console.warn('EvoPay: index.php também não funcionou');
         }
         
-        // Se index.php não funcionou, tenta API direta
-        console.warn(`EvoPay: Tentando API direta para ${url}...`);
-        const directUrl = `${this.directApiUrl}${url}`;
-        
-        try {
-          const directResponse = await fetch(directUrl, options);
+        // Se index.php não funcionou, em produção/mobile NÃO tenta API direta
+        if (!isProduction && !isMobile) {
+          console.warn(`EvoPay: Tentando API direta para ${url}...`);
+          const directUrl = `${this.directApiUrl}${url}`;
           
-          if (directResponse.ok) {
-            console.warn('EvoPay: API direta funcionou! Upload do proxy PHP ainda é recomendado para evitar CORS.');
-            return directResponse;
-          } else {
-            throw new Error(`API direta retornou ${directResponse.status}`);
-          }
-        } catch (directError) {
-          console.error('EvoPay: API direta também falhou:', directError);
-          
-          // Mensagem mais clara se for erro de CORS
-          if (directError.message.includes('CORS') || directError.message.includes('Access-Control')) {
-            throw new Error(`🚨 ERRO: Proxy PHP não encontrado e API direta bloqueada por CORS.\n\n✅ SOLUÇÃO: Faça upload dos arquivos para /api/evopay/ no servidor e configure PHP.\n\n📁 Arquivos: proxy.php, index.php, .htaccess`);
-          } else {
+          try {
+            const directResponse = await fetch(directUrl, options);
+            
+            if (directResponse.ok) {
+              console.warn('EvoPay: API direta funcionou! Upload do proxy PHP ainda é recomendado para evitar CORS.');
+              return directResponse;
+            } else {
+              throw new Error(`API direta retornou ${directResponse.status}`);
+            }
+          } catch (directError) {
+            console.error('EvoPay: API direta também falhou:', directError);
             throw new Error(`Proxy PHP não encontrado (404). Faça upload de /api/evopay/proxy.php para o servidor. Erro direto: ${directError.message}`);
           }
+        } else {
+          // Em produção/mobile, não tenta API direta (sempre usa proxy)
+          throw new Error(`🚨 Proxy PHP não encontrado (404). Verifique se os arquivos estão em /api/evopay/ no servidor.\n\n📁 Arquivos necessários:\n- /api/evopay/proxy.php\n- /api/evopay/.htaccess\n\n🔗 Teste manualmente: https://tkttok.shop/api/evopay/proxy.php`);
         }
       }
       
       return response;
     } catch (error) {
-      // Se é erro de rede e estamos usando proxy, tenta direto
+      // Se é erro de rede e estamos usando proxy, tenta direto apenas em desenvolvimento
       if ((error.message.includes('Failed to fetch') || error.message.includes('Load failed')) && 
-          this.apiUrl.includes('/api/evopay')) {
+          this.apiUrl.includes('/api/evopay') && !isProduction && !isMobile) {
         console.warn(`EvoPay: Erro de rede com proxy, tentando API direta para ${url}...`);
         const directUrl = `${this.directApiUrl}${url}`;
         
@@ -230,11 +286,90 @@ class EvoPay {
       const data = await response.json();
       
       console.log('EvoPay: Pagamento criado com sucesso!', data);
+      console.log('EvoPay: Campos disponíveis na resposta:', Object.keys(data));
+      console.log('EvoPay: Verificando QR Code em diferentes campos...');
 
       // Formata o QR Code base64 com o prefixo necessário
-      let qrCodeFormatted = data.qrCodeBase64 || data.qrCode || data.qr_code_base64 || data.qr_code;
-      if (qrCodeFormatted && !qrCodeFormatted.startsWith('data:image')) {
-        qrCodeFormatted = `data:image/png;base64,${qrCodeFormatted}`;
+      // Tenta múltiplos campos possíveis na resposta da API
+      let qrCodeFormatted = null;
+      
+      // Lista de campos possíveis para o QR code
+      const qrCodeFields = [
+        'qrCodeBase64',
+        'qrCode',
+        'qr_code_base64',
+        'qr_code',
+        'qrcode',
+        'qrcodeBase64',
+        'pixQrCode',
+        'pix_qr_code',
+        'qrCodeImage',
+        'qrCodeData',
+        'image',
+        'qr_image',
+        'brCodeImage'
+      ];
+      
+      // Procura o QR code em todos os campos possíveis
+      for (const field of qrCodeFields) {
+        if (data[field]) {
+          console.log(`EvoPay: QR Code encontrado no campo: ${field}`);
+          qrCodeFormatted = data[field];
+          break;
+        }
+      }
+      
+      // Se não encontrou em campos diretos, verifica em objetos aninhados
+      if (!qrCodeFormatted) {
+        if (data.pix && data.pix.qrCode) {
+          console.log('EvoPay: QR Code encontrado em data.pix.qrCode');
+          qrCodeFormatted = data.pix.qrCode;
+        } else if (data.payment && data.payment.qrCode) {
+          console.log('EvoPay: QR Code encontrado em data.payment.qrCode');
+          qrCodeFormatted = data.payment.qrCode;
+        } else if (data.data && data.data.qrCode) {
+          console.log('EvoPay: QR Code encontrado em data.data.qrCode');
+          qrCodeFormatted = data.data.qrCode;
+        }
+      }
+      
+      // Log de debug se não encontrou QR code
+      if (!qrCodeFormatted) {
+        console.warn('EvoPay: ⚠️ QR Code não encontrado na resposta da API!');
+        console.warn('EvoPay: Resposta completa:', JSON.stringify(data, null, 2));
+        
+        // Tenta gerar QR code a partir do código PIX copia e cola
+        const pixCode = data.qrCodeText || data.pixCopyPaste || data.pix_copy_paste || data.brCode || data.br_code || data.pix_code;
+        if (pixCode) {
+          console.log('EvoPay: Tentando gerar QR Code a partir do código PIX...');
+          qrCodeFormatted = await generateQrCodeFromPixCode(pixCode);
+          if (qrCodeFormatted) {
+            console.log('EvoPay: ✅ QR Code gerado com sucesso a partir do código PIX!');
+          } else {
+            console.warn('EvoPay: Não foi possível gerar QR Code a partir do código PIX');
+          }
+        } else {
+          console.warn('EvoPay: Código PIX também não encontrado na resposta');
+        }
+      } else {
+        console.log('EvoPay: ✅ QR Code encontrado! Formatando...');
+      }
+      
+      // Formata o QR code se encontrado
+      if (qrCodeFormatted) {
+        // Remove espaços em branco e quebras de linha
+        qrCodeFormatted = qrCodeFormatted.trim().replace(/\s/g, '');
+        
+        // Adiciona prefixo data:image se não tiver
+        if (!qrCodeFormatted.startsWith('data:image')) {
+          // Verifica se já é base64 puro (sem prefixo)
+          if (qrCodeFormatted.match(/^[A-Za-z0-9+/=]+$/)) {
+            qrCodeFormatted = `data:image/png;base64,${qrCodeFormatted}`;
+            console.log('EvoPay: Prefixo data:image adicionado ao QR Code');
+          } else {
+            console.warn('EvoPay: QR Code em formato desconhecido:', qrCodeFormatted.substring(0, 50) + '...');
+          }
+        }
       }
 
       // Retorna no formato esperado pela aplicação
@@ -242,12 +377,12 @@ class EvoPay {
         success: true,
         paymentId: data.id || data.payment_id,
         qrCode: qrCodeFormatted,
-        qrCodeUrl: data.qrCodeUrl || data.qr_code_url,
-        pixCopyPaste: data.qrCodeText || data.pixCopyPaste || data.pix_copy_paste || data.brCode,
+        qrCodeUrl: data.qrCodeUrl || data.qr_code_url || data.qrcode_url,
+        pixCopyPaste: data.qrCodeText || data.pixCopyPaste || data.pix_copy_paste || data.brCode || data.br_code || data.pix_code,
         expiresAt: data.expiresAt || data.expires_at,
         status: data.status,
         amount: data.amount,
-        createdAt: data.createdAt,
+        createdAt: data.createdAt || data.created_at,
         rawData: data
       };
     } catch (error) {
@@ -613,16 +748,33 @@ window.SupabaseToEvoPay = SupabaseToEvoPay;
     
     const currentHost = window.location.hostname;
     const protocol = window.location.protocol;
-    const isProduction = !currentHost.includes('localhost') && 
-                         !currentHost.includes('127.0.0.1') && 
-                         currentHost !== '192.168.0.204' &&
-                         !currentHost.match(/^192\.168\./);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    // Em produção, usa o proxy PHP no mesmo domínio (resolve CORS)
-    if (isProduction && (originalUrl.includes('localhost') || originalUrl.includes('127.0.0.1'))) {
+    // Detecta se está em produção (qualquer domínio que não seja localhost/IP local)
+    // Inclui detecção específica para tkttok.shop
+    const isLocalhost = currentHost === 'localhost' || 
+                        currentHost === '127.0.0.1' || 
+                        currentHost.match(/^192\.168\./) ||
+                        currentHost.match(/^10\./) ||
+                        currentHost.match(/^172\.(1[6-9]|2[0-9]|3[01])\./);
+    
+    const isProduction = !isLocalhost || currentHost.includes('tkttok.shop');
+    
+    console.log('EvoPay: Detecção de ambiente:', {
+      currentHost,
+      isProduction,
+      isMobile,
+      originalUrl,
+      protocol,
+      isTkttokShop: currentHost.includes('tkttok.shop')
+    });
+    
+    // Em produção OU mobile OU tkttok.shop, SEMPRE usa o proxy PHP no mesmo domínio (resolve CORS)
+    if ((isProduction || isMobile || currentHost.includes('tkttok.shop')) && 
+        (originalUrl.includes('localhost') || originalUrl.includes('127.0.0.1') || originalUrl.includes(':8001'))) {
       const productionUrl = `${protocol}//${currentHost}/api/evopay`;
-      console.log('EvoPay: Modo produção detectado, usando proxy PHP:', productionUrl);
-      console.log('EvoPay: O proxy PHP resolve problemas de CORS automaticamente');
+      console.log('EvoPay: 🔄 Modo produção/mobile/tkttok.shop detectado, usando proxy PHP:', productionUrl);
+      console.log('EvoPay: ✅ O proxy PHP resolve problemas de CORS automaticamente');
       
       // Atualiza a meta tag se existir
       const apiUrlMeta = document.querySelector('meta[name="evopay-api-url"]');
@@ -633,8 +785,8 @@ window.SupabaseToEvoPay = SupabaseToEvoPay;
       return productionUrl;
     }
     
-    // Se está usando localhost e a página foi acessada via IP da rede (desenvolvimento)
-    if (originalUrl.includes('localhost') || originalUrl.includes('127.0.0.1')) {
+    // Se está usando localhost e a página foi acessada via IP da rede (desenvolvimento desktop)
+    if (!isMobile && !currentHost.includes('tkttok.shop') && (originalUrl.includes('localhost') || originalUrl.includes('127.0.0.1'))) {
       // Se está acessando via IP da rede (ex: 192.168.x.x)
       if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(currentHost)) {
         // Substitui localhost pelo IP da rede
@@ -659,6 +811,12 @@ window.SupabaseToEvoPay = SupabaseToEvoPay;
       }
     }
     
+    // Se já está configurado para usar /api/evopay, mantém
+    if (originalUrl.includes('/api/evopay')) {
+      console.log('EvoPay: URL já configurada para proxy PHP:', originalUrl);
+      return originalUrl;
+    }
+    
     return originalUrl;
   }
   
@@ -680,6 +838,12 @@ window.SupabaseToEvoPay = SupabaseToEvoPay;
     
     const evopay = new EvoPay(apiKey, apiUrl);
     const interceptor = new SupabaseToEvoPay(evopay);
+    
+    // Atualiza a URL da API na instância se foi corrigida
+    if (apiUrl !== (apiUrlMeta ? apiUrlMeta.content : window.EVOPAY_API_URL)) {
+      evopay.apiUrl = apiUrl;
+      console.log('EvoPay: URL da API atualizada na instância:', evopay.apiUrl);
+    }
     
     // Disponibiliza globalmente
     window.evopayInstance = evopay;

@@ -1,17 +1,19 @@
 <?php
 /**
- * Proxy EvoPay para Produção (PHP)
- * Versão alternativa: index.php
+ * Proxy EvoPay para Produção (PHP) - index.php
+ * Funciona quando acessado via /api/evopay/ sem especificar arquivo
  * 
- * Use esta versão se o servidor não suportar proxy.php diretamente
- * Faça upload deste arquivo para: /api/evopay/index.php
+ * Como usar:
+ * 1. Faça upload deste arquivo para: /api/evopay/index.php
+ * 2. Faça upload também de proxy.php para: /api/evopay/proxy.php
+ * 3. Configure no index.html:
+ *    <meta name="evopay-api-url" content="https://tkttok.shop/api/evopay">
  */
 
-// Headers CORS primeiro (antes de qualquer output)
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE');
-header('Access-Control-Allow-Headers: Content-Type, API-Key, Authorization');
-header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, API-Key');
+header('Content-Type: application/json');
 
 // Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -23,28 +25,30 @@ const EVOPAY_API_URL = 'https://pix.evopay.cash/v1';
 const API_KEY = '5aef8004-9644-4dda-85a4-163fae7439ae';
 
 // Get path from URL
-$requestUri = $_SERVER['REQUEST_URI'];
-$queryString = $_SERVER['QUERY_STRING'] ?? '';
-
-// Remove query string from path
-$path = strtok($requestUri, '?');
+$path = $_SERVER['REQUEST_URI'];
 
 // Remove /api/evopay from the beginning
-$path = preg_replace('#^/api/evopay/?#', '', $path);
+$path = preg_replace('#^/api/evopay#', '', $path);
 
 // Remove /index.php if present
-$path = preg_replace('#/index\.php$#', '', $path);
+$path = str_replace('/index.php', '', $path);
+$path = str_replace('/proxy.php', '', $path);
 
-// Remove leading/trailing slashes except for root
-$path = trim($path, '/');
+// Remove leading slash if present
+$path = ltrim($path, '/');
 
-// Build full URL to EvoPay API
-$apiPath = $path ? '/' . $path : '';
-$url = EVOPAY_API_URL . $apiPath;
+// If path is empty, default to root
+if (empty($path)) {
+    $path = '';
+} else {
+    // Add leading slash if not empty
+    $path = '/' . $path;
+}
 
-// Add query string if present
-if (!empty($queryString)) {
-    $url .= '?' . $queryString;
+// Build full URL
+$url = EVOPAY_API_URL . $path;
+if (!empty($_SERVER['QUERY_STRING'])) {
+    $url .= '?' . $_SERVER['QUERY_STRING'];
 }
 
 // Get request body
@@ -66,13 +70,9 @@ $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $_SERVER['REQUEST_METHOD']);
-curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
-// Add body for POST/PUT/PATCH
-if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH']) && !empty($body)) {
+// Add body for POST/PUT
+if ($_SERVER['REQUEST_METHOD'] !== 'GET' && !empty($body)) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 }
 
@@ -82,38 +82,14 @@ $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $error = curl_error($ch);
 curl_close($ch);
 
-// Handle cURL errors
+// Handle errors
 if ($error) {
     http_response_code(500);
-    echo json_encode([
-        'error' => 'cURL Error',
-        'message' => $error,
-        'url' => $url
-    ], JSON_PRETTY_PRINT);
+    echo json_encode(['error' => $error]);
     exit;
 }
 
-// Handle HTTP errors
-if ($httpCode >= 400) {
-    // Try to parse error response
-    $errorData = json_decode($response, true);
-    if ($errorData) {
-        http_response_code($httpCode);
-        echo json_encode($errorData, JSON_PRETTY_PRINT);
-    } else {
-        http_response_code($httpCode);
-        echo json_encode([
-            'error' => 'HTTP Error',
-            'status' => $httpCode,
-            'message' => $response ?: 'No response body',
-            'url' => $url
-        ], JSON_PRETTY_PRINT);
-    }
-    exit;
-}
-
-// Success - return response
+// Return response
 http_response_code($httpCode);
 echo $response;
 ?>
-

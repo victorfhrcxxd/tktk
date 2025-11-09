@@ -1,52 +1,46 @@
 <?php
 /**
  * Proxy EvoPay para Produção (PHP)
- * Versão melhorada com tratamento de erros e debug
+ * Use este arquivo em hospedagem compartilhada que só suporta PHP
  * 
- * Upload para: /api/evopay/proxy.php
+ * Como usar:
+ * 1. Faça upload deste arquivo para: /api/evopay/proxy.php
+ * 2. Configure no index.html:
+ *    <meta name="evopay-api-url" content="https://seudominio.com/api/evopay">
  */
 
-// Headers CORS primeiro
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE');
-header('Access-Control-Allow-Headers: Content-Type, API-Key, Authorization');
-header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, API-Key');
+header('Content-Type: application/json');
 
-// Handle preflight OPTIONS
+// Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// Configuração
-define('EVOPAY_API_URL', 'https://pix.evopay.cash/v1');
-define('API_KEY', '5aef8004-9644-4dda-85a4-163fae7439ae');
+const EVOPAY_API_URL = 'https://pix.evopay.cash/v1';
+const API_KEY = '5aef8004-9644-4dda-85a4-163fae7439ae';
 
-// Debug mode (desabilitar em produção)
-$DEBUG = false;
-
-// Get path from REQUEST_URI
-$requestUri = $_SERVER['REQUEST_URI'];
-$queryString = $_SERVER['QUERY_STRING'] ?? '';
-
-// Remove query string from path
-$path = strtok($requestUri, '?');
+// Get path from URL
+$path = $_SERVER['REQUEST_URI'];
 
 // Remove /api/evopay from the beginning
-$path = preg_replace('#^/api/evopay/?#', '', $path);
+$path = preg_replace('#^/api/evopay#', '', $path);
 
 // Remove /proxy.php if present
-$path = preg_replace('#/proxy\.php$#', '', $path);
+$path = str_replace('/proxy.php', '', $path);
 
-// Remove leading/trailing slashes except for root
-$path = trim($path, '/');
+// If path is empty or just '/', default to root
+if (empty($path) || $path === '/') {
+    $path = '';
+}
 
-// Build full URL to EvoPay API
-$apiPath = $path ? '/' . $path : '';
-$url = EVOPAY_API_URL . $apiPath;
-
-if (!empty($queryString)) {
-    $url .= '?' . $queryString;
+// Build full URL
+$url = EVOPAY_API_URL . $path;
+if (!empty($_SERVER['QUERY_STRING'])) {
+    $url .= '?' . $_SERVER['QUERY_STRING'];
 }
 
 // Get request body
@@ -58,7 +52,7 @@ $headers = [
     'Content-Type: application/json'
 ];
 
-// Use API-Key from request header if present (prioridade)
+// Add API-Key from request if present
 if (isset($_SERVER['HTTP_API_KEY'])) {
     $headers[0] = 'API-Key: ' . $_SERVER['HTTP_API_KEY'];
 }
@@ -68,13 +62,9 @@ $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $_SERVER['REQUEST_METHOD']);
-curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
-// Add body for POST/PUT/PATCH
-if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH']) && !empty($body)) {
+// Add body for POST/PUT
+if ($_SERVER['REQUEST_METHOD'] !== 'GET' && !empty($body)) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 }
 
@@ -82,48 +72,17 @@ if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH']) && !empty($bo
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $error = curl_error($ch);
-$curlInfo = curl_getinfo($ch);
 curl_close($ch);
 
-// Handle cURL errors
+// Handle errors
 if ($error) {
     http_response_code(500);
-    echo json_encode([
-        'error' => 'cURL Error',
-        'message' => $error,
-        'debug' => $DEBUG ? [
-            'url' => $url,
-            'path' => $path,
-            'requestUri' => $requestUri,
-            'method' => $_SERVER['REQUEST_METHOD']
-        ] : null
-    ], JSON_PRETTY_PRINT);
+    echo json_encode(['error' => $error]);
     exit;
 }
 
-// Handle HTTP errors
-if ($httpCode >= 400) {
-    // Try to parse error response
-    $errorData = json_decode($response, true);
-    if ($errorData) {
-        http_response_code($httpCode);
-        echo json_encode($errorData, JSON_PRETTY_PRINT);
-    } else {
-        http_response_code($httpCode);
-        echo json_encode([
-            'error' => 'HTTP Error',
-            'status' => $httpCode,
-            'message' => $response ?: 'No response body',
-            'debug' => $DEBUG ? [
-                'url' => $url,
-                'curlInfo' => $curlInfo
-            ] : null
-        ], JSON_PRETTY_PRINT);
-    }
-    exit;
-}
-
-// Success - return response
+// Return response
 http_response_code($httpCode);
 echo $response;
 ?>
+
