@@ -24,31 +24,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 const EVOPAY_API_URL = 'https://pix.evopay.cash/v1';
 const API_KEY = '5aef8004-9644-4dda-85a4-163fae7439ae';
 
-// Get path from URL
-$path = $_SERVER['REQUEST_URI'];
+// Get path from URL - funciona com ou sem .htaccess
+$requestUri = $_SERVER['REQUEST_URI'];
+$scriptName = $_SERVER['SCRIPT_NAME']; // /api/evopay/index.php
 
-// Remove /api/evopay from the beginning
-$path = preg_replace('#^/api/evopay#', '', $path);
+// Remove query string temporariamente para processar o path
+$queryString = $_SERVER['QUERY_STRING'] ?? '';
+$requestUriWithoutQuery = strpos($requestUri, '?') !== false 
+    ? substr($requestUri, 0, strpos($requestUri, '?')) 
+    : $requestUri;
 
-// Remove /index.php if present
-$path = str_replace('/index.php', '', $path);
-$path = str_replace('/proxy.php', '', $path);
-
-// Remove leading slash if present
-$path = ltrim($path, '/');
-
-// If path is empty, default to root
-if (empty($path)) {
-    $path = '';
+// Se está acessando via /api/evopay/index.php/path ou /api/evopay/path
+if (strpos($requestUriWithoutQuery, $scriptName) === 0) {
+    // Remove o script name e a barra seguinte
+    $path = substr($requestUriWithoutQuery, strlen($scriptName));
+    $path = ltrim($path, '/');
 } else {
-    // Add leading slash if not empty
-    $path = '/' . $path;
+    // Remove /api/evopay do início
+    $path = preg_replace('#^/api/evopay#', '', $requestUriWithoutQuery);
+    $path = ltrim($path, '/');
 }
 
+// Remove index.php se ainda estiver no path
+$path = str_replace('index.php', '', $path);
+$path = str_replace('proxy.php', '', $path);
+$path = ltrim($path, '/');
+
 // Build full URL
-$url = EVOPAY_API_URL . $path;
-if (!empty($_SERVER['QUERY_STRING'])) {
-    $url .= '?' . $_SERVER['QUERY_STRING'];
+$url = EVOPAY_API_URL;
+if (!empty($path)) {
+    $url .= '/' . $path;
+}
+if (!empty($queryString)) {
+    $url .= '?' . $queryString;
 }
 
 // Get request body
@@ -85,7 +93,7 @@ curl_close($ch);
 // Handle errors
 if ($error) {
     http_response_code(500);
-    echo json_encode(['error' => $error]);
+    echo json_encode(['error' => $error, 'url' => $url]);
     exit;
 }
 
@@ -93,3 +101,4 @@ if ($error) {
 http_response_code($httpCode);
 echo $response;
 ?>
+
